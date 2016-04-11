@@ -5,7 +5,7 @@ import smtplib
 CRED_FILE = 'email_user_pass.txt'
 REC_FILE = 'email_recipients.txt'
 
-def sendNotificationMail(msg):
+def sendNotificationMail(subject, message):
     credsFile = open(CRED_FILE, 'r')
     recFile = open(REC_FILE, 'r')
     mailUser  = credsFile.readline()
@@ -16,13 +16,14 @@ def sendNotificationMail(msg):
     server.login(mailUser, mailPass)
  
     for mailRec in recFile:    
-        server.sendmail(mailUser, mailRec, msg)
+        newMessage = 'Subject: %s\n\n%s' % (subject, message)
+        server.sendmail(mailUser, mailRec, newMessage)
 
     recFile.close()
     server.quit()
 
 def unitTests():
-    sendNotificationMail('Unit testing message from python mail sender')
+    sendNotificationMail('Test SUBJECT', 'Unit testing message from python mail sender')
 
 if __name__ == '__main__':
     unitTests()

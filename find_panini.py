@@ -8,14 +8,16 @@ CHECKLIST_HEADER_TAG = 'h1'
 H1_BEGIN_TAG = '<h1>'
 H1_END_TAG = '</h1>'
 EMPTY_PRODUCT = 'Checklist'
-URL_PREFIX = 'http://www.paniniamerica.net/dspFullChecklistbyID.cfm?prod='
+VIEW_URL_PREFIX = 'http://www.paniniamerica.net/dspFullChecklistbyID.cfm?prod='
+DLOAD_URL_PREFIX = 'http://www.paniniamerica.net/excelChecklist.cfm?prod='
 PROD_NUM_FILE_NAME = 'next_prod_num.txt'
+SUBJECT_LINE = 'New Panini Checklist(s)'
 
 #Test data
 TEST_GOOD_PROD_NUM = '477'
 TEST_BAD_PROD_NUM = '500'
-TEST_GOOD_PROD = URL_PREFIX + TEST_GOOD_PROD_NUM
-TEST_BAD_PROD = URL_PREFIX + TEST_BAD_PROD_NUM
+TEST_GOOD_PROD = VIEW_URL_PREFIX + TEST_GOOD_PROD_NUM
+TEST_BAD_PROD = VIEW_URL_PREFIX + TEST_BAD_PROD_NUM
 
 #Finds the title of the product header in the returned web page
 def findHeader(soup):
@@ -57,7 +59,8 @@ def checkNewProduct():
     #Get next porduct number to check
     nextProdNum = getNextProdNum()
     print 'Checking for existence of product number: ' + nextProdNum
-    url = URL_PREFIX + nextProdNum
+    url = VIEW_URL_PREFIX + nextProdNum
+    dloadUrl = DLOAD_URL_PREFIX + nextProdNum
     soup = getProductPageSoup(url)
     if soup is not None:
         returnData = []
@@ -65,7 +68,7 @@ def checkNewProduct():
         if isEmpty(content) is False:
             updateNextProdNum(nextProdNum)
             returnData.append(content)
-            returnData.append(url)
+            returnData.append(dloadUrl)
             returnData.append('\r\n')
             return returnData
 
@@ -75,7 +78,7 @@ def notifiyRecipients(products):
     message = 'New checklist(s) uploaded to Panini\r\n\r\n'
     prodList = "\r\n".join(products)
     print 'Notifying recipients of new products: ' + prodList
-    sendNotificationMail(message + prodList)
+    sendNotificationMail(SUBJECT_LINE, message + prodList)
 
 #Checks if the next product number is empty or populated.
 #If populated, notifies registered recipients and continues checking
