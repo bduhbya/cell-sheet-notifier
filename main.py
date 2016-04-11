@@ -1,9 +1,11 @@
 #! /usr/bin/python
-import find_panini
+from find_panini import checkForPaniniUpdates
+
+updateFuncs = [checkForPaniniUpdates]
 
 def main():
-    #TODO: Call each provider to find new products
-    return
+    for update in updateFuncs:
+        update()
 
 if __name__ == "__main__":
     main()

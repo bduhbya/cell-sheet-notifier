@@ -2,6 +2,7 @@
 
 from bs4 import BeautifulSoup
 from get_soup_page import getProductPageSoup
+from send_email import sendNotificationMail
 
 CHECKLIST_HEADER_TAG = 'h1'
 H1_BEGIN_TAG = '<h1>'
@@ -66,15 +67,15 @@ def checkNewProduct():
     return None
 
 def notifiyRecipients(products):
-    prodList = ''
-    for prod in products:
-        prodList += prod + ' '
+    message = 'New checklist uploaded to Panini\r\n\r\n'
+    prodList = "\r\n".join(products)
     print 'Notifying recipients of new products: ' + prodList
+    sendNotificationMail(message + prodList)
 
 #Checks if the next product number is empty or populated.
 #If populated, notifies registered recipients and continues checking
 #until products are not available
-def checkForUpdates():
+def checkForPaniniUpdates():
     products = []
     productTitle = checkNewProduct()
     while productTitle is not None:
