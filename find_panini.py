@@ -11,7 +11,7 @@ EMPTY_PRODUCT = 'Checklist'
 VIEW_URL_PREFIX = 'http://www.paniniamerica.net/dspFullChecklistbyID.cfm?prod='
 DLOAD_URL_PREFIX = 'http://www.paniniamerica.net/excelChecklist.cfm?prod='
 PROD_NUM_FILE_NAME = 'next_prod_num.txt'
-SUBJECT_LINE = 'New Panini Checklist(s)'
+SUBJECT_LINE = 'New Panini Checklist(s) Released'
 
 #Test data
 TEST_GOOD_PROD_NUM = '477'
