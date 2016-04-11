@@ -10,18 +10,19 @@ def sendNotificationMail(msg):
     recFile = open(REC_FILE, 'r')
     mailUser  = credsFile.readline()
     mailPass = credsFile.readline()
-    mailRec = recFile.readline()
     credsFile.close()
-    recFile.close()
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
     server.login(mailUser, mailPass)
-     
-    server.sendmail(mailUser, mailRec, msg)
+ 
+    for mailRec in recFile:    
+        server.sendmail(mailUser, mailRec, msg)
+
+    recFile.close()
     server.quit()
 
 def unitTests():
-    sendNotificationMail('Last test message from python')
+    sendNotificationMail('Unit testing message from python mail sender')
 
 if __name__ == '__main__':
     unitTests()
