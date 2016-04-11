@@ -57,17 +57,22 @@ def checkNewProduct():
     #Get next porduct number to check
     nextProdNum = getNextProdNum()
     print 'Checking for existence of product number: ' + nextProdNum
-    soup = getProductPageSoup(URL_PREFIX + nextProdNum)
+    url = URL_PREFIX + nextProdNum
+    soup = getProductPageSoup(url)
     if soup is not None:
+        returnData = []
         content = findHeader(soup)
         if isEmpty(content) is False:
             updateNextProdNum(nextProdNum)
-            return content
+            returnData.append(content)
+            returnData.append(url)
+            returnData.append('\r\n')
+            return returnData
 
     return None
 
 def notifiyRecipients(products):
-    message = 'New checklist uploaded to Panini\r\n\r\n'
+    message = 'New checklist(s) uploaded to Panini\r\n\r\n'
     prodList = "\r\n".join(products)
     print 'Notifying recipients of new products: ' + prodList
     sendNotificationMail(message + prodList)
@@ -77,10 +82,11 @@ def notifiyRecipients(products):
 #until products are not available
 def checkForPaniniUpdates():
     products = []
-    productTitle = checkNewProduct()
-    while productTitle is not None:
-        products.append(productTitle)
-        productTitle = checkNewProduct()
+    prodData = checkNewProduct()
+    while prodData is not None:
+        for value in prodData:
+            products.append(value)
+        prodData = checkNewProduct()
 
     if(len(products) > 0):
         notifiyRecipients(products)
@@ -104,9 +110,10 @@ def unitTest():
 #    validate(isEmpty(content), True)
 
 #    updateNextProdNum(400)
-#    checkNewProduct()
+    prodData = checkNewProduct()
+    print("\r\n".join(prodData))
 
-    checkForUpdates()
+#    checkForUpdates()
 
 if __name__ == "__main__":
     unitTest()
