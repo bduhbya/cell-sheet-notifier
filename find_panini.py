@@ -13,11 +13,63 @@ DLOAD_URL_PREFIX = 'http://www.paniniamerica.net/excelChecklist.cfm?prod='
 PROD_NUM_FILE_NAME = 'next_prod_num.txt'
 SUBJECT_LINE = 'New Panini Checklist(s) Released'
 
-#Test data
+#Test data/functions
 TEST_GOOD_PROD_NUM = '477'
 TEST_BAD_PROD_NUM = '500'
 TEST_GOOD_PROD = VIEW_URL_PREFIX + TEST_GOOD_PROD_NUM
 TEST_BAD_PROD = VIEW_URL_PREFIX + TEST_BAD_PROD_NUM
+SAMPLE_POPULATED_PAGE = 'TestData/sample-populated-checklist.html'
+SAMPLE_POPULATED_HEADER = 'Football 2016 Panini Collegiate Draft Picks Checklist'
+SAMPLE_EMPTY_PAGE = 'TestData/sample-empty-product-page.html'
+SAMPLE_EMPTY_HEADER = 'Checklist'
+TEST_PROD_NUM_RESOURCE = 'TestData/' + PROD_NUM_FILE_NAME
+
+findHeaderTests = {SAMPLE_POPULATED_PAGE:SAMPLE_POPULATED_HEADER, SAMPLE_EMPTY_PAGE:SAMPLE_EMPTY_HEADER}
+isEmptyTests = {SAMPLE_POPULATED_PAGE:False, SAMPLE_EMPTY_PAGE:True}
+nextProdNumTests = {TEST_PROD_NUM_RESOURCE:'400'}
+
+def validate(testName, actual, expected):
+    if actual != expected:
+        print 'FAIL - ' + testName + ': Expected ' + str(expected) + ', got: ' + str(actual)
+    else:
+        print 'PASS - ' + testName + ': Expected and actual results match: ' + str(actual)
+
+def testFindHeader():
+    for key, value in findHeaderTests.iteritems():
+        testPage = open(key, 'r')
+        html = testPage.read()
+        soup = BeautifulSoup(html, 'html.parser')
+        result = findHeader(soup)
+        validate('testFindHeader', result, value)
+        testPage.close()
+
+def testIsEmpty():
+    for key, value in isEmptyTests.iteritems():
+        testPage = open(key, 'r')
+        html = testPage.read()
+        soup = BeautifulSoup(html, 'html.parser')
+        header = findHeader(soup)
+        result = isEmpty(header)
+        validate('testIsEmpty', result, value)
+        testPage.close()
+
+def testGetNextProdNum():
+    for key, value in nextProdNumTests.iteritems():
+        result = getNextProdNum(True)
+        validate('testGetNextProdNum', result, value)
+
+def testUpdateNextProdNum():
+    prevProd = getNextProdNum(True)
+    expected = str(int(prevProd) + 1)
+    updateNextProdNum(prevProd, True)
+    actual = getNextProdNum(True)
+    validate('testUpdateNextProdNum', expected, actual)
+    #Put original value back
+    updateNextProdNum(str(int(prevProd) - 1), True)
+
+unitTestFuncs = (testFindHeader, testIsEmpty, testGetNextProdNum, testUpdateNextProdNum)
+
+#===============Module functional code=========================================
 
 #Finds the title of the product header in the returned web page
 def findHeader(soup):
@@ -33,11 +85,24 @@ def isEmpty(headerContent):
     print('Found header data: ' + str(headerContent))
     return headerContent == EMPTY_PRODUCT
 
+#Helper function, not unit tested
+def getProductResource(unitTesting, write):
+    mode = None
+    if write:
+        mode = 'w'
+    else:
+        mode = 'r'
+
+    if not unitTesting:
+        return open(PROD_NUM_FILE_NAME, mode)
+    else:
+        return open(TEST_PROD_NUM_RESOURCE, mode)
+
 #Gets the next product number to check
 #TODO: Update to use cloud DB
-def getNextProdNum():
-    prodNumFile = open(PROD_NUM_FILE_NAME, 'r')
-    nextProdNum = prodNumFile.readline()
+def getNextProdNum(unitTesting=False):
+    prodNumFile = getProductResource(unitTesting, False)
+    nextProdNum = prodNumFile.readline().rstrip()
     prodNumFile.close()
     print 'Next product number: ' + nextProdNum
     return nextProdNum
@@ -45,14 +110,13 @@ def getNextProdNum():
 #Updates the data storage for the next product number to check
 #on the next run
 #TODO: Update to use cloud DB
-def updateNextProdNum(lastProdNum):
+def updateNextProdNum(lastProdNum, unitTesting=False):
     nextProdNum = str(int(lastProdNum) + 1)
     print 'Updating db with next prodnum: ' + nextProdNum
-    prodNumFile = open(PROD_NUM_FILE_NAME, 'w')
+    prodNumFile = getProductResource(unitTesting, True)
     prodNumFile.write(nextProdNum)
     prodNumFile.close()
     
-
 #Checks for the existance of the next product from data
 #storage
 def checkNewProduct():
@@ -74,6 +138,7 @@ def checkNewProduct():
 
     return None
 
+#Sends notification of products through notification service
 def notifiyRecipients(products):
     message = 'New checklist(s) uploaded to Panini\r\n\r\n'
     prodList = "\r\n".join(products)
@@ -94,29 +159,11 @@ def checkForPaniniUpdates():
     if(len(products) > 0):
         notifiyRecipients(products)
 
-# Testing functions
-def validate(actual, expected):
-    if actual != expected:
-        print 'FAIL: Expected ' + str(expected) + ', got: ' + str(actual)
-    else:
-        print 'PASS: Product does not exist: ' + str(actual)
 
 def unitTest():
-#    soup = getProductPageSoup(TEST_GOOD_PROD)
-#    content = findHeader(soup)
-#    print 'Validating product num: ' + TEST_GOOD_PROD_NUM
-#    validate(isEmpty(content), False)
-#
-#    soup = getProductPageSoup(TEST_BAD_PROD)
-#    content = findHeader(soup)
-#    print 'Validating product num: ' + TEST_BAD_PROD_NUM
-#    validate(isEmpty(content), True)
-
-#    updateNextProdNum(400)
-    prodData = checkNewProduct()
-    print("\r\n".join(prodData))
-
-#    checkForUpdates()
+    for testFunc in unitTestFuncs:
+        testFunc()
+        print '*************'
 
 if __name__ == "__main__":
     unitTest()
