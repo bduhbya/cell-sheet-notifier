@@ -14,6 +14,7 @@ PROD_NUM_FILE_NAME = 'next_prod_num.txt'
 SUBJECT_LINE = 'New Panini Checklist(s) Released'
 
 #Test data/functions
+unitTesting = False #Global switch to access test resources instead of live resources
 TEST_GOOD_PROD_NUM = '477'
 TEST_BAD_PROD_NUM = '500'
 TEST_GOOD_PROD = VIEW_URL_PREFIX + TEST_GOOD_PROD_NUM
@@ -24,9 +25,13 @@ SAMPLE_EMPTY_PAGE = 'TestData/sample-empty-product-page.html'
 SAMPLE_EMPTY_HEADER = 'Checklist'
 TEST_PROD_NUM_RESOURCE = 'TestData/' + PROD_NUM_FILE_NAME
 
+#Updated for each unit test with specific product resource
+CHECK_NEW_PROD_TEST_CUR_RESOURCE = None
+
 findHeaderTests = {SAMPLE_POPULATED_PAGE:SAMPLE_POPULATED_HEADER, SAMPLE_EMPTY_PAGE:SAMPLE_EMPTY_HEADER}
 isEmptyTests = {SAMPLE_POPULATED_PAGE:False, SAMPLE_EMPTY_PAGE:True}
 nextProdNumTests = {TEST_PROD_NUM_RESOURCE:'400'}
+checkNewProductTests = {SAMPLE_POPULATED_PAGE:True, SAMPLE_EMPTY_PAGE:False}
 
 def validate(testName, actual, expected):
     if actual != expected:
@@ -34,14 +39,17 @@ def validate(testName, actual, expected):
     else:
         print 'PASS - ' + testName + ': Expected and actual results match: ' + str(actual)
 
+def getSoupFromFile(fileName):
+    testPage = open(fileName, 'r')
+    html = testPage.read()
+    testPage.close()
+    return BeautifulSoup(html, 'html.parser')
+
 def testFindHeader():
     for key, value in findHeaderTests.iteritems():
-        testPage = open(key, 'r')
-        html = testPage.read()
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = getSoupFromFile(key)
         result = findHeader(soup)
         validate('testFindHeader', result, value)
-        testPage.close()
 
 def testIsEmpty():
     for key, value in isEmptyTests.iteritems():
@@ -55,19 +63,28 @@ def testIsEmpty():
 
 def testGetNextProdNum():
     for key, value in nextProdNumTests.iteritems():
-        result = getNextProdNum(True)
+        result = getNextProdNum()
         validate('testGetNextProdNum', result, value)
 
 def testUpdateNextProdNum():
-    prevProd = getNextProdNum(True)
+    prevProd = getNextProdNum()
     expected = str(int(prevProd) + 1)
-    updateNextProdNum(prevProd, True)
-    actual = getNextProdNum(True)
+    updateNextProdNum(prevProd)
+    actual = getNextProdNum()
     validate('testUpdateNextProdNum', expected, actual)
     #Put original value back
-    updateNextProdNum(str(int(prevProd) - 1), True)
+    updateNextProdNum(str(int(prevProd) - 1))
 
-unitTestFuncs = (testFindHeader, testIsEmpty, testGetNextProdNum, testUpdateNextProdNum)
+def testCheckNewProduct():
+    global CHECK_NEW_PROD_TEST_CUR_RESOURCE
+    for key, value in checkNewProductTests.iteritems():
+        CHECK_NEW_PROD_TEST_CUR_RESOURCE = key
+        #TODO: Update to ensure product number from test db is restored
+        result = checkNewProduct()
+        actual = (result is not None)
+        validate('testCheckNewProduct', value, actual)
+
+unitTestFuncs = (testFindHeader, testIsEmpty, testGetNextProdNum, testUpdateNextProdNum, testCheckNewProduct)
 
 #===============Module functional code=========================================
 
@@ -86,7 +103,7 @@ def isEmpty(headerContent):
     return headerContent == EMPTY_PRODUCT
 
 #Helper function, not unit tested
-def getProductResource(unitTesting, write):
+def getProductResource(write):
     mode = None
     if write:
         mode = 'w'
@@ -100,8 +117,8 @@ def getProductResource(unitTesting, write):
 
 #Gets the next product number to check
 #TODO: Update to use cloud DB
-def getNextProdNum(unitTesting=False):
-    prodNumFile = getProductResource(unitTesting, False)
+def getNextProdNum():
+    prodNumFile = getProductResource(False)
     nextProdNum = prodNumFile.readline().rstrip()
     prodNumFile.close()
     print 'Next product number: ' + nextProdNum
@@ -110,31 +127,43 @@ def getNextProdNum(unitTesting=False):
 #Updates the data storage for the next product number to check
 #on the next run
 #TODO: Update to use cloud DB
-def updateNextProdNum(lastProdNum, unitTesting=False):
+def updateNextProdNum(lastProdNum):
     nextProdNum = str(int(lastProdNum) + 1)
     print 'Updating db with next prodnum: ' + nextProdNum
-    prodNumFile = getProductResource(unitTesting, True)
+    prodNumFile = getProductResource(True)
     prodNumFile.write(nextProdNum)
     prodNumFile.close()
-    
+
+def getProdSoup(nextProdNum):
+    soup = None
+    if not unitTesting:
+        url = VIEW_URL_PREFIX + nextProdNum
+        print 'Checking for product at URL: ' + url
+        soup = getProductPageSoup(url)
+    else:
+        soup = getSoupFromFile(CHECK_NEW_PROD_TEST_CUR_RESOURCE)
+
+    return soup
+
 #Checks for the existance of the next product from data
 #storage
 def checkNewProduct():
     #Get next porduct number to check
     nextProdNum = getNextProdNum()
     print 'Checking for existence of product number: ' + nextProdNum
-    url = VIEW_URL_PREFIX + nextProdNum
-    dloadUrl = DLOAD_URL_PREFIX + nextProdNum
-    soup = getProductPageSoup(url)
+    soup = getProdSoup(nextProdNum)
     if soup is not None:
         returnData = []
         content = findHeader(soup)
         if isEmpty(content) is False:
+            dloadUrl = DLOAD_URL_PREFIX + nextProdNum
             updateNextProdNum(nextProdNum)
             returnData.append(content)
             returnData.append(dloadUrl)
             returnData.append('\r\n')
             return returnData
+    else:
+        print 'ERROR: soup was None.  Issue with url'
 
     return None
 
@@ -161,7 +190,10 @@ def checkForPaniniUpdates():
 
 
 def unitTest():
+    global unitTesting
+    unitTesting = True
     for testFunc in unitTestFuncs:
+        print 'Running test: ' + testFunc.__name__
         testFunc()
         print '*************'
 
