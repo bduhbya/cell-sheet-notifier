@@ -22,6 +22,7 @@ TEST_BAD_PROD = VIEW_URL_PREFIX + TEST_BAD_PROD_NUM
 SAMPLE_POPULATED_PAGE = 'TestData/sample-populated-checklist.html'
 SAMPLE_POPULATED_HEADER = 'Football 2016 Panini Collegiate Draft Picks Checklist'
 SAMPLE_EMPTY_PAGE = 'TestData/sample-empty-product-page.html'
+SAMPLE_NULL_PAGE = 'NOT_A_FILE'
 SAMPLE_EMPTY_HEADER = 'Checklist'
 TEST_PROD_NUM_RESOURCE = 'TestData/' + PROD_NUM_FILE_NAME
 
@@ -31,7 +32,7 @@ CHECK_NEW_PROD_TEST_CUR_RESOURCE = None
 findHeaderTests = {SAMPLE_POPULATED_PAGE:SAMPLE_POPULATED_HEADER, SAMPLE_EMPTY_PAGE:SAMPLE_EMPTY_HEADER}
 isEmptyTests = {SAMPLE_POPULATED_PAGE:False, SAMPLE_EMPTY_PAGE:True}
 nextProdNumTests = {TEST_PROD_NUM_RESOURCE:'400'}
-checkNewProductTests = {SAMPLE_POPULATED_PAGE:True, SAMPLE_EMPTY_PAGE:False}
+checkNewProductTests = {SAMPLE_POPULATED_PAGE:True, SAMPLE_EMPTY_PAGE:False, SAMPLE_NULL_PAGE:False}
 
 def validate(testName, actual, expected):
     if actual != expected:
@@ -40,7 +41,11 @@ def validate(testName, actual, expected):
         print 'PASS - ' + testName + ': Expected and actual results match: ' + str(actual)
 
 def getSoupFromFile(fileName):
-    testPage = open(fileName, 'r')
+    try:
+        testPage = open(fileName, 'r')
+    except IOError:
+        return None
+    
     html = testPage.read()
     testPage.close()
     return BeautifulSoup(html, 'html.parser')
@@ -61,6 +66,11 @@ def testIsEmpty():
         validate('testIsEmpty', result, value)
         testPage.close()
 
+#TODO: Update when db changes from file to real db
+def restoreTestDbProduct(productNum):
+    #Put original value back
+    updateNextProdNum(str(int(productNum) - 1))
+
 def testGetNextProdNum():
     for key, value in nextProdNumTests.iteritems():
         result = getNextProdNum()
@@ -72,17 +82,18 @@ def testUpdateNextProdNum():
     updateNextProdNum(prevProd)
     actual = getNextProdNum()
     validate('testUpdateNextProdNum', expected, actual)
-    #Put original value back
-    updateNextProdNum(str(int(prevProd) - 1))
+    restoreTestDbProduct(prevProd)
 
 def testCheckNewProduct():
     global CHECK_NEW_PROD_TEST_CUR_RESOURCE
     for key, value in checkNewProductTests.iteritems():
         CHECK_NEW_PROD_TEST_CUR_RESOURCE = key
+        testDbProduct = getNextProdNum()
         #TODO: Update to ensure product number from test db is restored
         result = checkNewProduct()
         actual = (result is not None)
         validate('testCheckNewProduct', value, actual)
+        restoreTestDbProduct(testDbProduct)
 
 unitTestFuncs = (testFindHeader, testIsEmpty, testGetNextProdNum, testUpdateNextProdNum, testCheckNewProduct)
 
