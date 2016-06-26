@@ -5,6 +5,7 @@ import shutil
 from bs4 import BeautifulSoup
 from get_soup_page import getProductPageSoup
 from send_email import sendNotificationMail
+from panini_test_classes import ProdSearchTest
 import platform
 
 END_LINE = None
@@ -45,9 +46,15 @@ SAMPLE_SKELETON_PAGE = 'TestData/sample-skeleton-cheklist.html'
 SAMPLE_NULL_PAGE = 'NOT_A_FILE'
 TEST_DATA_PREFIX = 'TestData/'
 SAMPLE_EMPTY_HEADER = 'Checklist'
+CUR_TEST_PROD_NUM_RESOURCE = None
 TEST_PROD_NUM_RESOURCE = TEST_DATA_PREFIX + PROD_NUM_FILE_NAME
 TEST_SKELETON_WRITE_RESOURCE = TEST_DATA_PREFIX + 'test-skeleton-write.txt'
 TEST_SKELETON_REMOVE_RESOURCE = TEST_DATA_PREFIX + 'test-skeleton-remove.txt'
+TEST_SKELETON_FIRSTRUN_RESOURCE = TEST_DATA_PREFIX + 'test-skeleton-nofile.txt'
+TEST_CURPROD_PROC_RESOURCE_INITIAL = TEST_DATA_PREFIX + 'test-curprod-proc-prodfile-initial.txt'
+TEST_CURPROD_PROC_SKEL_RESOURCE_INITIAL = TEST_DATA_PREFIX + 'test-curprod-proc-skelfile-initial.txt'
+TEST_CURPROD_PROC_RESOURCE = TEST_DATA_PREFIX + 'test-curprod-proc-prodfile.txt'
+TEST_CURPROD_PROC_SKEL_RESOURCE = TEST_DATA_PREFIX + 'test-curprod-proc-skelfile.txt'
 
 #Updated for each unit test with specific product resource
 CHECK_NEW_PROD_TEST_CUR_RESOURCE = None
@@ -74,6 +81,59 @@ removeSkeletonProdNumTestsInits = (removeSkeletonSingleProdnumTestInit, removeSk
 removeSkeletonProdNumTestsValues = (removeSkeletonSingleProdNumTests, removeSkeletonMultiProdNumTests)
 NUM_SKELETON_TESTS = len(removeSkeletonProdNumTestNames)
 
+#Current product procesing testing
+populatedOrSkeletonProductTestMessageBodyOneProd = [SAMPLE_POPULATED_HEADER, 'http://www.paniniamerica.net/excelChecklist.cfm?prod=400', '\r\n']
+
+populatedOrSkeletonProductTestMessageBodyTwoProd = [SAMPLE_POPULATED_HEADER, 'http://www.paniniamerica.net/excelChecklist.cfm?prod=400', '\r\n', \
+                                                    SAMPLE_POPULATED_HEADER, 'http://www.paniniamerica.net/excelChecklist.cfm?prod=400', '\r\n']
+
+populatedOrSkeletonProductTestMessageBodyThreeProd = [SAMPLE_POPULATED_HEADER, 'http://www.paniniamerica.net/excelChecklist.cfm?prod=400', '\r\n', \
+                                                      SAMPLE_POPULATED_HEADER, 'http://www.paniniamerica.net/excelChecklist.cfm?prod=400', '\r\n', \
+                                                      SAMPLE_POPULATED_HEADER, 'http://www.paniniamerica.net/excelChecklist.cfm?prod=400', '\r\n']
+
+curProductNextResourceOneValid = (
+                                  ProdSearchTest(SAMPLE_POPULATED_PAGE, False, populatedOrSkeletonProductTestMessageBodyOneProd, []), \
+                                  ProdSearchTest(SAMPLE_EMPTY_PAGE, True, populatedOrSkeletonProductTestMessageBodyOneProd, []) \
+                                 )
+
+curProductNextResourceOneSkeleton = (
+                                     ProdSearchTest(SAMPLE_SKELETON_PAGE, False, [], populatedOrSkeletonProductTestMessageBodyOneProd), \
+                                     ProdSearchTest(SAMPLE_EMPTY_PAGE, True, [], populatedOrSkeletonProductTestMessageBodyOneProd) \
+                                    )
+
+curProductNextResourceOneValidOneSkeleton = (
+                                             ProdSearchTest(SAMPLE_POPULATED_PAGE, False, populatedOrSkeletonProductTestMessageBodyOneProd, []), \
+                                             ProdSearchTest(SAMPLE_SKELETON_PAGE, False, populatedOrSkeletonProductTestMessageBodyOneProd, populatedOrSkeletonProductTestMessageBodyOneProd), \
+                                             ProdSearchTest(SAMPLE_EMPTY_PAGE, True, populatedOrSkeletonProductTestMessageBodyOneProd, populatedOrSkeletonProductTestMessageBodyOneProd) \
+                                            )
+
+curProductNextResourceOneSkeletonOneValid = (
+                                             ProdSearchTest(SAMPLE_SKELETON_PAGE, False, [], populatedOrSkeletonProductTestMessageBodyOneProd), \
+                                             ProdSearchTest(SAMPLE_POPULATED_PAGE, False, populatedOrSkeletonProductTestMessageBodyOneProd, []), \
+                                             ProdSearchTest(SAMPLE_EMPTY_PAGE, True, populatedOrSkeletonProductTestMessageBodyOneProd, populatedOrSkeletonProductTestMessageBodyOneProd) \
+                                            )
+
+curProductNextResourceThreeValid = (
+                                    ProdSearchTest(SAMPLE_POPULATED_PAGE, False, populatedOrSkeletonProductTestMessageBodyOneProd, []), \
+                                    ProdSearchTest(SAMPLE_POPULATED_PAGE, False, populatedOrSkeletonProductTestMessageBodyTwoProd, []), \
+                                    ProdSearchTest(SAMPLE_POPULATED_PAGE, False, populatedOrSkeletonProductTestMessageBodyThreeProd, []), \
+                                    ProdSearchTest(SAMPLE_EMPTY_PAGE, True, populatedOrSkeletonProductTestMessageBodyThreeProd, []) \
+                                   )
+
+curProductNextResourceThreeSkeleton = (
+                                       ProdSearchTest(SAMPLE_SKELETON_PAGE, False, [], populatedOrSkeletonProductTestMessageBodyOneProd  ), \
+                                       ProdSearchTest(SAMPLE_SKELETON_PAGE, False, [], populatedOrSkeletonProductTestMessageBodyTwoProd  ), \
+                                       ProdSearchTest(SAMPLE_SKELETON_PAGE, False, [], populatedOrSkeletonProductTestMessageBodyThreeProd), \
+                                       ProdSearchTest(SAMPLE_EMPTY_PAGE, True, [], populatedOrSkeletonProductTestMessageBodyThreeProd) \
+                                      )
+
+#TODO: Test with 
+#TODO: three valid, three skeleton
+#TODO: four interchanging valid and skeleton
+#TODO: no valid and no skeleton
+
+#TODO: Test skeleton processing function
+
 #TODO: Make seperate module
 LogUnitTest = -1
 LogError = 1
@@ -95,6 +155,24 @@ def validate(testName, actual, expected):
         logUTMessage('FAIL - ' + testName + ': Expected ' + str(expected) + ', got: ' + str(actual))
     else:
         logUTMessage('PASS - ' + testName + ': Expected and actual results match: ' + str(actual))
+
+def validateNotEquals(testName, actual, expected):
+    if actual == expected:
+        logUTMessage('FAIL - ' + testName + ': Expected ' + str(expected) + ', got(not equal): ' + str(actual))
+    else:
+        logUTMessage('PASS - ' + testName + ': Expected and actual results do NOT match: ' + str(actual))
+
+def openOrCreateFile(name, mode):
+    retFile = None
+    try:
+        retFile = open(name, mode)
+    except IOError:
+        if mode == 'r':
+            retFile = open(name, 'w')
+            retFile.close()
+            retFile = open(name, 'r')
+
+    return retFile
 
 def getSoupFromFile(fileName):
     try:
@@ -129,7 +207,9 @@ def restoreTestDbProduct(productNum):
     updateDbToNextProdNum(str(int(productNum) - 1))
 
 def testGetNextProdNum(name):
+    global CUR_TEST_PROD_NUM_RESOURCE
     for key, value in nextProdNumTests.iteritems():
+        CUR_TEST_PROD_NUM_RESOURCE = key
         logUTMessage('------------------------------------------')
         logUTMessage('Testing: ' + key)
         result = getNextProdNum()
@@ -159,6 +239,21 @@ def testCheckForSkeleton(name):
         soup = getSoupFromFile(key)
         actual = isSkeleton(soup)
         validate(name, value, actual)
+
+def testOpenSkeletonFirstRunWithNoFile(name):
+    global TEST_SKELETON_PROD_NUMS_FILE_NAME
+    TEST_SKELETON_PROD_NUMS_FILE_NAME = TEST_SKELETON_FIRSTRUN_RESOURCE
+    temp = getSkeletonResource('r')
+    validateNotEquals(name, temp, None)
+    if temp is not None:
+        temp.close()
+        os.remove(TEST_SKELETON_PROD_NUMS_FILE_NAME)
+
+def testReadSkeletonFirstRunWithNoFile(name):
+    global TEST_SKELETON_PROD_NUMS_FILE_NAME
+    TEST_SKELETON_PROD_NUMS_FILE_NAME = TEST_SKELETON_FIRSTRUN_RESOURCE
+    validate(name, getSkeletonProducts(), [])
+    os.remove(TEST_SKELETON_PROD_NUMS_FILE_NAME)
 
 def testAddSkeletonProdNum(name):
     global TEST_SKELETON_PROD_NUMS_FILE_NAME
@@ -191,14 +286,68 @@ def testRemoveSkeletonProdNum(name):
 
             validate(name, getSkeletonProducts(), value)
 
+def initCurProdTest():
+    global CUR_TEST_PROD_NUM_RESOURCE
+    global TEST_SKELETON_PROD_NUMS_FILE_NAME
+    CUR_TEST_PROD_NUM_RESOURCE = TEST_CURPROD_PROC_RESOURCE
+    TEST_SKELETON_PROD_NUMS_FILE_NAME = TEST_CURPROD_PROC_SKEL_RESOURCE
+
+
+def runCurProdTest(name, curTestData):
+    global CHECK_NEW_PROD_TEST_CUR_RESOURCE
+    actualProducts = []
+    actualSkeletons = []
+    for curTest in curTestData:
+        copyProdNumTestResource(TEST_CURPROD_PROC_RESOURCE_INITIAL)
+        copySkeletonTestResource(TEST_CURPROD_PROC_SKEL_RESOURCE_INITIAL)
+        CHECK_NEW_PROD_TEST_CUR_RESOURCE = curTest.mPage
+        actualSrchDone = processCurProduct(actualProducts, actualSkeletons)
+        validate(name, actualSrchDone , curTest.mSearchDone)
+        validate(name, actualProducts , curTest.mProductReturn)
+        validate(name, actualSkeletons, curTest.mSkeletonReturn)
+
+
+def testprocessCurProductOneValid(name):
+    initCurProdTest()
+    runCurProdTest(name, curProductNextResourceOneValid)
+
+def testprocessCurProductOneSkeleton(name):
+    initCurProdTest()
+    runCurProdTest(name, curProductNextResourceOneSkeleton)
+
+def testprocessCurProductOneValidOneSkeleton(name):
+    initCurProdTest()
+    runCurProdTest(name, curProductNextResourceOneValidOneSkeleton)
+
+def testprocessCurProductOneSkeletonOneValid(name):
+    initCurProdTest()
+    runCurProdTest(name, curProductNextResourceOneSkeletonOneValid)
+
+def testprocessCurProductThreeValid(name):
+    initCurProdTest()
+    runCurProdTest(name, curProductNextResourceThreeValid)
+
+def testprocessCurProductThreeSkeleton(name):
+    initCurProdTest()
+    runCurProdTest(name, curProductNextResourceThreeSkeleton)
+
 unitTestFuncs = (testFindHeader, \
                  testIsEmpty, \
                  testGetNextProdNum, \
                  testUpdateNextProdNum, \
+                 testOpenSkeletonFirstRunWithNoFile, \
+                 testReadSkeletonFirstRunWithNoFile, \
                  testIsValidProduct, \
                  testCheckForSkeleton, \
                  testAddSkeletonProdNum, \
-                 testRemoveSkeletonProdNum)
+                 testRemoveSkeletonProdNum, \
+                 testprocessCurProductOneValid, \
+                 testprocessCurProductOneSkeleton, 
+                 testprocessCurProductOneValidOneSkeleton, \
+                 testprocessCurProductOneSkeletonOneValid, \
+                 testprocessCurProductThreeValid,
+                 testprocessCurProductThreeSkeleton \
+                )
 
 #===============Module functional code=========================================
 
@@ -262,17 +411,19 @@ def isEmpty(headerContent):
     return headerContent == EMPTY_PRODUCT
 
 #Helper function, not unit tested
-def getProductResource(write):
-    mode = None
-    if write:
-        mode = 'w'
-    else:
-        mode = 'r'
-
+def getProductResource(mode):
     if not unitTesting:
         return open(PROD_NUM_FILE_NAME, mode)
     else:
-        return open(TEST_PROD_NUM_RESOURCE, mode)
+        return open(CUR_TEST_PROD_NUM_RESOURCE, mode)
+
+#Helper function, not unit tested
+def copyProdNumTestResource(src):
+    shutil.copy(src, CUR_TEST_PROD_NUM_RESOURCE)
+
+#Helper function, not unit tested
+def copySkeletonTestResource(src):
+    shutil.copy(src, TEST_SKELETON_PROD_NUMS_FILE_NAME)
 
 #Helper function, not unit tested
 def replaceSkeletonResource(src):
@@ -284,14 +435,14 @@ def replaceSkeletonResource(src):
 #Helper function, not unit tested
 def getSkeletonResource(mode):
     if not unitTesting:
-        return open(SKELETON_PROD_NUMS_FILE_NAME, mode)
+        return openOrCreateFile(SKELETON_PROD_NUMS_FILE_NAME, mode)
     else:
-        return open(TEST_SKELETON_PROD_NUMS_FILE_NAME, mode)
+        return openOrCreateFile(TEST_SKELETON_PROD_NUMS_FILE_NAME, mode)
 
 #Gets the next product number to check
 #TODO: Update to use cloud DB
 def getNextProdNum():
-    prodNumFile = getProductResource(False)
+    prodNumFile = getProductResource('r')
     nextProdNum = prodNumFile.readline().rstrip()
     prodNumFile.close()
     logMessage('Next product number: ' + nextProdNum)
@@ -303,7 +454,7 @@ def getNextProdNum():
 def updateDbToNextProdNum(lastProdNum):
     nextProdNum = str(int(lastProdNum) + 1)
     logMessage('Updating db with next prodnum: ' + nextProdNum)
-    prodNumFile = getProductResource(True)
+    prodNumFile = getProductResource('w')
     prodNumFile.write(nextProdNum)
     prodNumFile.close()
 
@@ -361,10 +512,13 @@ def isSimpleTableData(entry):
 #Sends notification of products through notification service
 def notifiyRecipients(products, subject, message):
     prodList = "\r\n".join(products)
-    logMessage('Notifying recipients of new products: ' + prodList)
-    sendNotificationMail(subject, message + prodList)
-
-#Checks if a non-empty checkist is a skeleton or not
+    if not unitTesting:
+        logMessage('Notifying recipients of new products: ' + prodList)
+        sendNotificationMail(subject, message + prodList)
+    else:
+        logMessage('notifiyRecipients, Notifying recipients of new products: ' + prodList, LogUnitTest)
+                                                          
+#Checks if a non-empty checkist is a skeleton or not      
 def isSkeleton(soup):
     nextLine = None
     seqFnd = False
@@ -376,6 +530,32 @@ def isSkeleton(soup):
         seqFnd = isSeqEntry(cell)
 
     return (isSimpleTableData(nextLine) is False)
+
+def processCurProduct(products, skeletonProducts):
+    curProdNum = getNextProdNum()
+    logMessage('Checking for existence of product number: ' + curProdNum, LogUnitTest)
+    soup = getProdSoup(curProdNum)
+    prodSrchDone = not isValidProduct(soup)
+    if not prodSrchDone:
+        updateDbToNextProdNum(curProdNum)
+        prodData = getProductData(curProdNum, findHeader(soup))
+        if isSkeleton(soup):
+            logMessage('Skeleton list found at: ' + curProdNum, LogUnitTest)
+            addSkeletonProdNum(curProdNum)
+            skeletonProducts.extend(prodData)
+        else:
+            products.extend(prodData)
+
+    return prodSrchDone
+ 
+def processSkeletonProducts(products):
+    #Check if pending skeleton lists are updated to full products
+    for curSkeleton in getSkeletonProducts():
+        soup = getProdSoup(curSkeleton)
+        if not isSkeleton(soup):
+            logMessage('Old skeleton is now valid checklist: ' + curSkeleton, LogUnitTest)
+            products.extend(getProductData(curSkeleton, findHeader(soup)))
+            removeSkeletonProduct(curSkeleton)
 
 #Checks for new products.
 #  if new product found, updates next new product data base
@@ -391,29 +571,11 @@ def checkForPaniniUpdates():
     skeletonProducts = []
     prodSrchDone = False
     #Check for new product checklists
+    prodSrchDone = processCurProduct(products, skeletonProducts)
     while not prodSrchDone:
-        curProdNum = getNextProdNum()
-        logMessage('Checking for existence of product number: ' + curProdNum, LogUnitTest)
-        soup = getProdSoup(curProdNum)
-        prodSrchDone = not isValidProduct(soup)
-        if not prodSrchDone:
-            updateDbToNextProdNum(curProdNum)
-            prodData = getProductData(curProdNum, findHeader(soup))
-            if isSkeleton(soup):
-                logMessage('Skeleton list found at: ' + curProdNum, LogUnitTest)
-                addSkeletonProdNum(curProdNum)
-                skeletonProducts.extend(prodData)
-            else:
-                products.extend(prodData)
+        prodSrchDone = processCurProduct(products, skeletonProducts)
 
-    #Check if pending skeleton lists are updated to full products
-    for curSkeleton in getSkeletonProducts():
-        soup = getProdSoup(curSkeleton)
-        if not isSkeleton(soup):
-            logMessage('Old skeleton is now valid checklist: ' + curSkeleton, LogUnitTest)
-            products.extend(getProductData(curSkeleton, findHeader(soup)))
-            removeSkeletonProduct(curSkeleton)
-
+    processSkeletonProducts(products)
 
     if(len(products) > 0):
         notifiyRecipients(products, NEW_PROD_SUBJECT_LINE, NEW_PROD_MESSAGE)
